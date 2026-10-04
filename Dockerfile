@@ -5,7 +5,7 @@ ENV CI=1 \
 
 WORKDIR /app
 
-COPY --chown=node:node package.json package-lock.json ./
+COPY --chown=node:node package.json package-lock.json .npmrc ./
 
 USER node
 
