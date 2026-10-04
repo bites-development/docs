@@ -291,6 +291,21 @@ VLM. They compile to `described_activity` and begin in Shadow.
 Descriptions are provisional observations and cannot automatically accuse a
 person, decide ownership, or become a quality score.
 
+### Optional online Qwen fallback
+
+When creating the appliance, enable **Use online Qwen if local Qwen does not
+respond**, enter the provider key, and copy the newly generated environment
+block. The key is included only in the block in your browser; the dashboard does
+not receive or store it. The default is Alibaba Model Studio's
+OpenAI-compatible endpoint with `qwen3-vl-plus`.
+
+Local Ollama remains primary. After 90 seconds without a local description, the
+Bridge re-checks Frigate's rule-managed GenAI allowlist. It sends one snapshot
+only if that label is still required by an Active or Shadow rule. Disabling the
+last rule for a label therefore stops new cloud calls for that label. The
+resulting event is marked `cloud_vlm_fallback` with exact `cloud/<model>`
+provenance and still requires human confirmation.
+
 ## How to use each Vision tab
 
 ### Live
@@ -436,6 +451,7 @@ or `./test-cycle.sh --keep-running` to inspect the test Frigate UI at
 | Camera reports zero FPS | Wrong RTSP path, unreachable camera, unsupported codec, or insufficient resources | Test the substream locally, verify H.264, and inspect Frigate logs |
 | Events exist but evidence is broken | Bridge endpoint is empty/unreachable, private policy blocks Bites, or evidence expired | Check retention, `/health`, Tailscale Serve, and the site's Bridge endpoint |
 | VLM action rule is refused | The appliance did not report a VLM capability | Start Ollama/model, align model names, and wait for topology check-in |
+| Local Qwen is unavailable and no cloud description arrives | Cloud fallback is disabled, its HTTPS/key/model settings are invalid, the label is no longer rule-enabled, or the snapshot expired | Check `VISION_CLOUD_VLM_*`, run `./verify.sh`, confirm the rule manifest, and inspect `vision-bridge` logs |
 | Action description arrives but no active accusation is made | Correct safety behavior | Review the provisional description and promote only validated rules |
 | Quality page loads but grading is unavailable | No real production `QualityGrader` adapter is configured | Continue human preview/reporting; do not enable the simulator in production |
 | Duplicate or delayed events appear after restart | Bridge is replaying its durable outbox | Allow idempotent delivery to complete; do not delete volumes |
@@ -470,4 +486,3 @@ A site is operational only when all items below are true:
 
 These boundaries are intentional. They keep the system useful for observation
 and review without presenting uncertain model output as a business fact.
-
