@@ -1,0 +1,53 @@
+---
+title: "ProdAI budget and flow"
+description: "Configure provider budgets and understand the generation lifecycle."
+---
+
+# ProdAI Budget And Flow
+
+ProdAI treats the project `budget` field as the planned budget ceiling. The amount is entered when creating a project or when creating a full scenario from the Scenario Wizard.
+
+The budget screens then calculate working estimates from the project, dates, and extracted entities:
+
+| Calculation | Source |
+| --- | --- |
+| Category allocation | Fixed production split: 25% above the line, 45% below the line, 15% post-production, 10% contingency, 5% other |
+| Daily average | Project budget divided across `start_date` through `end_date` |
+| Scene allocation | AI `budget_estimate` values from entity details when available |
+| Fallback scene allocation | Entity complexity per scene when AI estimates are not available |
+| Entity pricing | Weighted budget share per entity, adjusted by category and importance multipliers, normalized to the project budget |
+
+The frontend exposes this as tabs instead of a single static form:
+
+| Tab | Purpose |
+| --- | --- |
+| Scenario Wizard | Generate the project, script, and initial entities from a scenario brief |
+| Production Board | Select a project, run script analysis, and inspect the generated screenplay |
+| Budget | Review calculated project budget analytics and entity pricing |
+| Characters | Generate visual prompts, previews, and reference packs for character entities |
+| Shots & Clips | Generate shot prompts, images, and short video clips from shot or storyboard entities |
+| Analysis | Queue analysis and review analysis history/statistics |
+| Storyboards | Create frames, auto-generate frames from shot entities, and generate storyboard images |
+| Timelines | Create production timelines and timeline items |
+| Screenplays | Create screenplay drafts and version checkpoints |
+
+## API
+
+Budget data is embedded in film project responses as `budget_analytics` and `entity_pricing`.
+
+Dedicated endpoints are also available:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/prodai/projects/{project}/budget-analytics` | Return budget allocation, daily budget, scene budget, summary, and validation data |
+| `GET` | `/api/prodai/projects/{project}/entity-pricing` | Return estimated entity costs grouped by category |
+| `GET` | `/api/prodai/projects/{project}/storyboards` | List storyboard frames |
+| `POST` | `/api/prodai/projects/{project}/storyboards` | Create a storyboard frame |
+| `POST` | `/api/prodai/projects/{project}/storyboards/auto-generate` | Create storyboard frames from shot entities |
+| `GET` | `/api/prodai/projects/{project}/timelines` | List production timelines |
+| `POST` | `/api/prodai/projects/{project}/timelines` | Create a production timeline |
+| `GET` | `/api/prodai/projects/{project}/screenplays` | List screenplay drafts |
+| `POST` | `/api/prodai/projects/{project}/screenplays` | Create a screenplay draft |
+
+All customer-facing ProdAI API endpoints require authentication and the
+`manage-prodai` permission.

@@ -1,0 +1,23 @@
+---
+title: "Identity verification privacy and retention"
+description: "How Bites minimizes, protects, retains, and deletes verification data."
+---
+
+# Identity Verification Privacy and Retention
+
+Bites stores only the local workflow data needed for auditability:
+
+- local verification IDs
+- Stripe verification session/report IDs
+- encrypted verified output summaries
+- status and error codes
+- reviewer decisions
+- audit events
+
+Raw ID images are not stored in Bites. The identity provider processes the
+documents under its own retention controls.
+
+For an authorized deletion request, contact the workspace owner or organization
+support channel. The request can include provider redaction and removal of local
+encrypted outputs while preserving the minimum non-sensitive audit evidence
+required by policy or law.

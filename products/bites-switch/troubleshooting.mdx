@@ -1,0 +1,36 @@
+---
+title: Troubleshoot an import
+---
+
+Use the message or status on your connection page to find a fix. See [Import from Odoo](./index.mdx) for the normal sequence.
+
+| Symptom | Likely cause | Fix |
+| --- | --- | --- |
+| HTTP 404 and a login URL | An older connection flow expected the login page address. | Enter the Odoo URL you normally use, including `https://`; any valid Odoo URL now works. Then select **Test connection**. |
+| **Access Denied** or **not allowed to access Payments** | The integration user lacks payment read access. | Add **Accounting / Read-only** using either method in [Prepare your Odoo](./odoo-setup.mdx); the change applies immediately. Test again. |
+| **Select a workspace before connecting a source** | No Bites workspace is selected. | Select the intended workspace, then choose **Connect**. |
+| **Odoo 19+ needs an API key, not a password** | A password was supplied to a version requiring an API key. | As the integration user, create a key under **Preferences → Account Security → New API Key**; use it in **API key or password** and test again. |
+| A fourth company is missing | The integration user cannot access that company, or the connection is scoped to another **Odoo company ID (optional)**. | Grant the dedicated user access to all intended companies in Odoo. Check the company ID on the connection and scan again; create a separate connection if you need another scope. |
+| **⚠** counts differ after a run | Source data changed while import and comparison were running, or records were skipped. | Select **Delta sync**, then **Reconcile**; if the warning remains, check date limits, skips, and the amounts in the reconciliation table. |
+| A run shows **stalled** or **failed** | Processing stopped before finishing. | Check **Latest run** and **Errors and conflicts**, address the reported cause, then select **Resume** when offered. |
+| **Not imported yet** | That area was not fetched in this run. | Select **Include in next run**, then run **Start migration** or **Delta sync** and **Reconcile**. |
+| **Skips** or **Skipped source records** show omissions | Some source rows do not fit a Bites record, such as invoice lines without a product, unsupported taxes, or bookings whose customer was not imported. | Check the reason in the reconciliation warnings or skipped records; import the missing prerequisite if possible, then run a delta. Keep unsupported rows for review in the import archive rather than assuming totals match. |
+| The first import is slow | A full source history or many attachments are being fetched. | Before starting, set **Import history from** (for example **Start of this year**) to limit dated documents. Import opening balances separately if you exclude older accounting entries. |
+| **Outbound URL is not allowed** | The Odoo address is private or internal; such addresses are blocked for security. | Use an externally reachable HTTPS Odoo address approved by your administrator. Do not disable the address protection. |
+
+## Two-way sync and developer mode
+
+| Symptom | Likely cause | Safe next step |
+| --- | --- | --- |
+| **Write-back permission required** or **Enable after preview** denied | The Bites operator lacks `writeback-bites-switch`, the Odoo integration user lacks create/write rights, or the preview expired. | Assign only the needed Bites permission, select **Test connection**, grant the relevant Odoo model rights, then repeat **Dry-run preview** and enable within ten minutes. |
+| **Off** or outbound entries remain pending | Domain disabled, **Pause write-back** active, queue worker/scheduler not processing, or retry delayed. | Check **Two-way sync**, choose **Resume write-back** when approved, verify worker and minute scheduler; use **Send now** only for an enabled domain. |
+| **Cinema seat occupied; held for review** | That seat is already assigned in Odoo or ticket/seat mapping is ambiguous. | Compare Odoo registrations/seats on staging; resolve the allocation first. Never force-create a second booking. |
+| **Posted Odoo invoice must never be changed; held for review** | The remote invoice is no longer a draft. | Do not retry an update against the posted move. Compare records and use the normal credit-note/accounting workflow if a correction is needed. |
+| **Odoo sale order is no longer draft; held for review** | The remote quotation has been confirmed or changed. | Inspect Odoo status and lines; do not overwrite confirmed sales. Decide manually and keep the domain paused if needed. |
+| **failed** in **Outbound queue** | An Odoo permission, transport, or validation error; its `last_error` names the immediate cause. | Inspect **Write audit**, correct the underlying issue, test the connection and choose **Retry** for that failed row. A scheduled retry may already be pending. |
+| **review** / **Create outcome unknown** | Timeout after a possible create, line create, confirmation or post. | Inspect Odoo and the external ID before doing anything else; never blindly retry an ambiguous action. Ask the administrator to reconcile the record. |
+| **conflict** / both sides changed | Odoo changed since the saved import/send baseline. | Compare both records; **Keep Bites**/**Keep Odoo** in **Errors and conflicts** resolve inbound conflict choices, not every outbox hold. Review the outbox separately. |
+| **Groups** or **Technical** menu missing | Developer mode is off or the account lacks Settings rights. | Go to **Settings → Activate the developer mode**, or append `?debug=1` (`?debug=assets` for asset debugging); ask an Odoo administrator for the appropriate menu rights. Developer mode does not grant them. |
+| Company/model/field ID unclear | Odoo hides technical identifiers in the normal view. | Enable developer mode; open **Settings → Users & Companies → Companies** and read the numeric ID in the URL, or inspect the model/field in the **Technical** menu. Confirm the integration user's allowed companies. |
+
+**Why check again?** A successful connection or a finished run does not guarantee all records mapped. Always inspect **Reconciliation**, **Skips**, and **Errors and conflicts** before using imported totals. For safe outbound recovery see [Two-way sync](./two-way-sync.mdx); for the complete import workflow see [Use BitesSwitch](./user-guide.mdx).

@@ -1,0 +1,59 @@
+---
+title: "ProdAI overview"
+description: "Governed AI generation with provider routing, budgets, credits, and audit records."
+---
+
+# ProdAI
+
+ProdAI adds AI-assisted film production workflows to the Bites dashboard. It
+supports scripts, entity extraction, timelines, screenplay collaboration,
+storyboards, image workflows, budget estimates, and analysis history inside the
+selected workspace.
+
+Open **ProdAI** from the Bites navigation. You need the `manage-prodai`
+permission to open the module; more specific permissions control project and
+analysis actions.
+
+## API
+
+All authenticated API routes are mounted under `/api/prodai` and require Sanctum authentication plus `manage-prodai`.
+
+Common endpoints:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/prodai/film-projects` | List workspace film projects |
+| `POST` | `/api/prodai/film-projects` | Create a film project |
+| `POST` | `/api/prodai/projects/{project}/analyze-script` | Analyze the current project script |
+| `POST` | `/api/prodai/generate-script` | Generate a screenplay draft |
+| `GET` | `/api/prodai/projects/{project}/entities` | List extracted production entities |
+| `GET` | `/api/prodai/projects/{project}/budget-analytics` | Get calculated budget analytics |
+| `GET` | `/api/prodai/projects/{project}/entity-pricing` | Get calculated entity pricing |
+| `GET` | `/api/prodai/projects/{project}/storyboards` | List storyboard frames |
+| `GET` | `/api/prodai/projects/{project}/timelines` | List production timelines |
+| `GET` | `/api/prodai/projects/{project}/screenplays` | List screenplay drafts |
+| `GET` | `/api/v1/ai/credits/balance` | Get the authenticated user's AI credit balance for the dashboard header |
+| `POST` | `/api/v1/ai/credits/topups` | Create an AI credit top-up order |
+| `POST` | `/api/v1/ai/credits/topups/{orderId}/stripe-checkout` | Create a Stripe Checkout Session for an AI credit top-up |
+| `GET` | `/api/v1/ai/credits/topups/{orderId}/stripe-status` | Verify Stripe payment and complete an AI credit top-up |
+
+The workspace administrator configures the AI provider and model. Provider
+credentials are never entered on a project or exposed to workspace members.
+
+## Permissions
+
+The module seeds the dash-style permissions below and keeps the upstream legacy permission names for compatibility:
+
+| Permission | Use |
+| --- | --- |
+| `manage-prodai` | Access ProdAI menus, page, and API |
+| `create-prodai-projects` | Create film projects |
+| `edit-prodai-projects` | Edit film projects |
+| `delete-prodai-projects` | Delete film projects |
+| `analyze-prodai-scripts` | Run script analysis |
+
+## Workspace and members
+
+Projects, members, generated assets, and usage are scoped to the active
+workspace. Confirm the workspace before generating content or purchasing
+credits.

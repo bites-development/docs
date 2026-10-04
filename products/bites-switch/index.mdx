@@ -1,0 +1,45 @@
+---
+title: BitesSwitch overview
+---
+
+BitesSwitch copies supported data into your selected Bites workspace. The first migration is followed by **Delta sync** for changes; imports are one-way. Nothing is written to Odoo unless optional two-way sync is switched on later, one area at a time: contacts, products, cinema bookings and seats, draft sales orders, and draft customer invoices and vendor bills. Confirming orders and posting invoices each need a separate setting; point-of-sale orders and payments are never written. See [Permissions for two-way sync](./odoo-setup.mdx#permissions-for-two-way-sync-optional) for the status of each area. Source records that cannot become Bites records can still be kept in the import archive for review.
+
+## Choose a source
+
+Use **Odoo API** for Odoo 17 or 19, including Odoo.sh; **Odoo dump** for a database backup (with an optional filestore); **Odoo CSV** for CSV/XLSX exports or a ZIP of exports; or **QuickBooks Online**. QuickBooks Online has been checked against a test service, not a live production account. Odoo Online requires the Custom plan to use the external API. See [Prepare your Odoo](./odoo-setup.mdx) before connecting an Odoo API source.
+
+## Run an import
+
+1. Select a Bites workspace. Under **Connect a data source**, choose **Connector type**, enter the requested connection details or upload the file, and select **Connect**. For a dump or export, use **Upload and import** if the file was not uploaded when you connected.
+2. On the connection page, select **Test connection** for an API connection and resolve any access errors before importing.
+3. Select **Scan** to discover source models and counts. **Why:** the scan shows what can be mapped and what is kept only in the import archive.
+4. Under **Models and domains**, select the areas you need; required prerequisites show as **Added automatically**. With no selection, mapped models and custom models are included. **Mapped** means a Bites record can be created; other discovered models may only be archived.
+5. Select **Start migration** and follow **Latest run** and **Run progress**. Keep the connection active until the run completes.
+6. Select **Reconcile** and check the **Reconciliation** table, including warnings and skipped records. Reconciliation may continue as a separate job.
+7. Later, select **Delta sync** to fetch changes and retry earlier mapping errors; then **Reconcile** again. **Why:** a fresh comparison is needed after changes at the source.
+
+### Import history from
+
+Before starting, set **Import history from** to the earliest document date you need. **Start of this year** sets January 1 of the current year; **From the beginning** clears the limit. On an existing connection, select **Save import date**; the change takes effect on the next full or delta run. Date-bound documents are limited, but explicitly selected master data and current stock quantities are not; automatically added master data may be limited to records referenced by imported documents.
+
+**Accounting warning:** entries before the chosen date are not imported. Account balances therefore start from zero on that date; import opening balances separately before relying on them.
+
+### Read the results
+
+**Source (live)** is a current source count, **Fetched** is the number retrieved for the run, and **Bites** is the number mapped to Bites records. They can differ when the source changes during an import, the date limit excludes documents, or some records cannot be mapped. A **✓** indicates the available comparison matched; a **⚠** means counts or amounts differ or a warning needs review. Check **Invoice total** and **Residual** as well as counts. **Not imported yet** means the area has not been fetched; select **Include in next run** if you need it. **Stored for audit (no Bites record)** means it was retained in the import archive rather than made into a Bites record.
+
+Closing the page does not stop queued work; there is no in-app stop button for an inbound migration. Ask an administrator to stop the queue worker if necessary, then resolve a **stalled** or **failed** run and select **Resume** when offered. Stop the worker carefully: it may process other jobs.
+
+## Limits to check
+
+- Custom or unsupported models may be kept in the import archive only; not every source row becomes a Bites record. Stock movement history is kept for audit, while current stock quantities can be imported. Some attachments or chatter without a supported destination are skipped.
+- Productless or fractional-quantity invoice lines, certain tax calculations, and unsupported poster formats can be skipped. Review **Skips**, **Skipped source records**, **Errors and conflicts**, and reconciliation warnings before accepting totals.
+- The trial balance covers imported posted journal entries, not invoice or bill ledger postings. Some foreign-currency totals may not match automatically.
+- Delta sync does not discover source deletions; a full migration can mark missing source rows in the import archive, but does not delete Bites records. QuickBooks Online attachments and its change feed are not imported.
+
+## Continue reading
+
+1. [Prepare your Odoo](./odoo-setup.mdx) for the API, integration user and webhook.
+2. [Use BitesSwitch](./user-guide.mdx) to connect, migrate, review and reconcile each source.
+3. [Two-way sync](./two-way-sync.mdx) to assess and enable outbound Odoo changes safely.
+4. [Troubleshooting](./troubleshooting.mdx) for import and write-back failures.

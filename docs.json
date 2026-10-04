@@ -2,48 +2,72 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Bites Documentation",
+  "description": "Guides and API documentation for the Bites business platform.",
   "colors": {
     "primary": "#16A34A",
     "light": "#07C983",
     "dark": "#15803D"
   },
   "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg"
+  },
   "navigation": {
     "tabs": [
       {
         "tab": "Guides",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Start here",
+            "pages": ["index", "getting-started/overview"]
+          },
+          {
+            "group": "BOOX",
+            "pages": ["products/boox/overview"]
+          },
+          {
+            "group": "BitesSwitch",
             "pages": [
-              "index",
-              "quickstart",
-              "development"
+              "products/bites-switch/index",
+              "products/bites-switch/user-guide",
+              "products/bites-switch/odoo-setup",
+              "products/bites-switch/two-way-sync",
+              "products/bites-switch/troubleshooting"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Identity verification",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "products/identity-verification/overview",
+              "products/identity-verification/privacy-retention"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "ProdAI",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "products/prodai/index",
+              "products/prodai/ai-credits",
+              "products/prodai/budget-and-flow"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Mart",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "products/mart/overview",
+              "products/mart/commerce",
+              "products/mart/services",
+              "products/mart/rentals"
             ]
+          }
+        ]
+      },
+      {
+        "tab": "Integrations",
+        "groups": [
+          {
+            "group": "AI clients",
+            "pages": ["integrations/chatgpt"]
           }
         ]
       },
@@ -52,9 +76,7 @@
         "groups": [
           {
             "group": "Camera operations",
-            "pages": [
-              "vision/camera-setup"
-            ]
+            "pages": ["vision/camera-setup"]
           }
         ]
       },
@@ -62,72 +84,45 @@
         "tab": "API reference",
         "groups": [
           {
-            "group": "API documentation",
-            "pages": [
-              "api-reference/introduction"
-            ]
+            "group": "Fundamentals",
+            "pages": ["api-reference/overview", "api-reference/authentication"]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Core APIs",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api-reference/contacts-api",
+              "api-reference/approvals-api",
+              "api-reference/customer-registration",
+              "api-reference/currency-settings"
             ]
           }
         ]
+      },
+      {
+        "tab": "Support",
+        "groups": [
+          {
+            "group": "Help",
+            "pages": ["support/get-help"]
+          }
+        ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
+    ]
   },
   "navbar": {
     "links": [
       {
         "label": "Support",
-        "href": "mailto:hi@mintlify.com"
+        "href": "/support/get-help"
       }
     ],
     "primary": {
       "type": "button",
-      "label": "Open Bites Vision",
-      "href": "https://bites.com/vision/ops"
+      "label": "Open Bites",
+      "href": "https://bites.com"
     }
   },
   "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    "options": ["copy", "view", "chatgpt", "claude", "perplexity", "mcp", "cursor", "vscode"]
   }
 }

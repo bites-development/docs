@@ -1,0 +1,51 @@
+---
+title: "AI credits"
+description: "Understand how ProdAI credits are reserved, consumed, and reconciled."
+---
+
+# AI Credits
+
+The dashboard top bar shows your available AI credit balance. Generation
+operations can reserve and consume credits according to the model and workflow.
+
+## Shared Inertia Prop
+
+Authenticated Inertia pages receive:
+
+```json
+{
+  "aiCreditBalance": {
+    "balance": 120.5,
+    "formatted_balance": "120.50",
+    "currency": "MyCredits",
+    "is_unlimited": false,
+    "is_low": false
+  }
+}
+```
+
+Unlimited balances return `"balance": null` and `"is_unlimited": true`.
+
+## API
+
+The same balance payload and top-up flow are available for clients through the versioned API.
+
+| Method | Path | Auth | Purpose |
+| --- | --- | --- | --- |
+| `GET` | `/api/v1/ai/credits/balance` | Sanctum | Fetch the current user's AI credit balance |
+| `POST` | `/api/v1/ai/credits/topups` | Sanctum | Create a pending AI credit top-up order |
+| `POST` | `/api/v1/ai/credits/topups/{orderId}/stripe-checkout` | Sanctum | Create a Stripe Checkout Session for the top-up order |
+| `GET` | `/api/v1/ai/credits/topups/{orderId}/stripe-status` | Sanctum | Verify Stripe payment and complete the top-up order |
+
+The create endpoint accepts:
+
+```json
+{
+  "credits": 25,
+  "payment_method": "stripe"
+}
+```
+
+Client top-ups should use `payment_method=stripe`, call the Stripe Checkout
+endpoint, and redirect the user to the returned session URL. Status verification
+is idempotent: checking an already credited order does not add the credits twice.

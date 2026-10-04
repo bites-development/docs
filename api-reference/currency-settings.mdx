@@ -1,0 +1,55 @@
+---
+title: Currency settings API
+description: Read currency formatting settings and change the default currency.
+---
+
+# Currency settings
+
+`GET /api/v1/settings/currency` reads the active account's settings and currency catalog.
+`PATCH /api/v1/settings/currency` updates only the supplied settings.
+Both require a Sanctum bearer token. Reading requires `manage-currency-settings`;
+updating requires `edit-currency-settings`. The existing token ability guard also applies.
+Settings use the existing active workspace owner (`creatorId`) scope, just like the dashboard;
+workspaces belonging to the same owner share these settings. Clients cannot choose a settings owner in the payload.
+
+## Change the default currency
+
+```bash
+curl --request PATCH "$BASE_URL/api/v1/settings/currency" \
+  --header "Authorization: Bearer $TOKEN" \
+  --header 'Accept: application/json' \
+  --header 'Content-Type: application/json' \
+  --data '{"settings":{"defaultCurrency":"EUR"}}'
+```
+
+The currency must be an exact code from `config/default_currency.php`. Its symbol is saved
+automatically, other formatting settings are preserved, and settings caches are invalidated.
+This changes the default used by the app; it does not convert existing monetary amounts or exchange rates.
+
+## Formatting fields
+
+| Field | Accepted values |
+| --- | --- |
+| `defaultCurrency` | Configured currency code, such as `USD`, `EUR`, or `EGP` |
+| `decimalFormat` | Integer 0–4 (numeric strings accepted) |
+| `decimalSeparator` | `.` or `,` |
+| `thousandsSeparator` | `,`, `.`, `space`, or `none` |
+| `floatNumber` | Boolean |
+| `currencySymbolSpace` | Boolean |
+| `currencySymbolPosition` | `left`, `right`, `before`, or `after` (existing dashboard conventions) |
+
+Use `space` to request a space separator without HTTP whitespace trimming; it is stored and returned as a literal space.
+`currencySymbol` is read-only. Empty settings and unknown nested keys are rejected.
+
+## Response and errors
+
+Both operations return HTTP 200 with `settings` and `currencies` at the top level.
+`settings` contains the fields above plus `currencySymbol`; `decimalFormat` is a string,
+and the two boolean fields are JSON booleans. Unset fields use dashboard defaults (USD,
+2 decimal places, dot decimal separator, comma thousands separator, floating numbers enabled,
+no symbol space, symbol on the left).
+
+Each catalog item retains `id`, `name`, `code`, and `symbol`; `is_default` reflects the
+account's saved default. The existing `GET /api/v1/currencies` static catalog remains unchanged.
+Errors are JSON: 401 for missing authentication, 403 for missing permissions or owner context,
+and 422 with field errors for invalid settings.

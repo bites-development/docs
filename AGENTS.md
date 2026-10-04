@@ -1,33 +1,34 @@
-> **First-time setup**: Customize this file for your project. Prompt the user to customize this file for their project.
-> For Mintlify product knowledge (components, configuration, writing standards),
-> install the Mintlify skill: `npx skills add https://mintlify.com/docs`
+# Bites documentation project instructions
 
-# Documentation project instructions
+## Project
 
-## About this project
-
-- This is a documentation site built on [Mintlify](https://mintlify.com)
-- Pages are MDX files with YAML frontmatter
-- Configuration lives in `docs.json`
-- Run `mint dev` to preview locally
-- Run `mint broken-links` to check links
+- This is the public Bites documentation site built with MDX and the Mint runtime.
+- Site configuration and navigation live in `docs.json`.
+- Run `npm run dev` for preview and `npm run check` for broken links.
+- Reuse the existing logos, colors, components, and information architecture.
 
 ## Terminology
 
-{/* Add product-specific terms and preferred usage */}
-{/* Example: Use "workspace" not "project", "member" not "user" */}
+- Use **workspace** for the primary tenant and data boundary.
+- Use **member** for someone participating in a workspace.
+- Use **site** for a physical Vision location.
+- Use **appliance** or **StoreBrain** for the Mac or Orin edge host.
+- Use exact product names: BOOX, BitesSwitch, ProdAI, Mart, MartService,
+  MartRental, and Bites Vision.
 
-## Style preferences
+## Style
 
-{/* Add any project-specific style rules below */}
+- Use active voice and second person.
+- Use sentence case for headings.
+- Keep pages task-oriented and state prerequisites before steps.
+- Bold UI labels and format routes, commands, filenames, and values as code.
+- Link to the next relevant task instead of duplicating an entire guide.
+- Include workspace and permission behavior when it affects results.
 
-- Use active voice and second person ("you")
-- Keep sentences concise — one idea per sentence
-- Use sentence case for headings
-- Bold for UI elements: Click **Settings**
-- Code formatting for file names, commands, paths, and code references
+## Public content boundary
 
-## Content boundaries
-
-{/* Define what should and shouldn't be documented */}
-{/* Example: Don't document internal admin features */}
+Never publish secrets, real credentials, customer data, private infrastructure,
+security findings, incident notes, provider handoffs, private commercial terms,
+unlaunched roadmaps, release ledgers, implementation plans, or raw QA evidence.
+Curate approved application documentation; do not mirror internal documentation
+directories wholesale.

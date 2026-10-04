@@ -1,0 +1,54 @@
+---
+title: Use BitesSwitch
+---
+
+## Enable and connect
+
+1. Ask an administrator to enable the **BitesSwitch** add-on for the workspace and assign `manage-bites-switch` for connection management, `run-bites-switch` for migrations/reconciliation and, only if needed, `writeback-bites-switch` for outbound Odoo writes. `view-bites-switch` is seeded as a separate permission. The module/plan must be active and the account verified.
+2. Select the intended Bites workspace, not “all workspaces”. Under **Connect a data source**, choose **Connector type** and **Connect**. Each connection is bound to this workspace; use [Prepare your Odoo](./odoo-setup.mdx) for the Odoo integration account.
+3. Fill in the fields for your connector:
+
+| Connector type | What to provide | What happens next |
+| --- | --- | --- |
+| **Odoo API** | **Odoo URL**, **Database**, **Login (user email)**, **API key or password**, optionally **Odoo company ID (optional)** | Odoo 19+ requires an API key; 17/18 also accept a password. Use **Test connection** before scanning. |
+| **Odoo dump** | Custom-format `.dump`; optional matching **Filestore (optional)** archive | Upload on connect or use **Import file → Upload and import** on the connection page before **Scan**. Requires staging PostgreSQL on the worker. |
+| **Odoo CSV** | `.csv`, `.xlsx`, or `.zip` of exports | Upload on connect or use **Upload and import** before **Scan**. Export related models and their IDs together. |
+| **QuickBooks Online** | Stored OAuth credentials or a realm ID and access token | Test before scanning; mock-tested locally, not verified against a production Intuit account. No QuickBooks outbound sync. |
+
+## Choose the history window and models
+
+1. Set **Import history from** before migrating. **Start of this year** chooses January 1 of the current year; **From the beginning** clears the cutoff. On an existing connection choose **Save import date**. This affects the *next* full or delta run, not old results.
+2. **Why:** date-bound documents and their children are limited, while explicitly selected master data and current stock quantities are not. Automatically added master data can be limited to records referenced by imported documents. **Accounting warning:** excluded earlier entries mean balances begin at zero on the cutoff date; import opening balances separately.
+3. Select **Test connection**, fix any access error, then **Scan**. In **Models and domains**, review **Source count**, **Mapping** and **Custom fields**; select desired models or leave none selected to import mapped and custom models by default. **Show all** exposes other source models; **Count** obtains an unknown count when offered. **Added automatically** lists planner-selected prerequisites. Some prerequisites are *referenced-only*: only those referenced by imported documents enter the run when a date window applies. Unsupported/custom source models can remain in the archive without Bites records.
+
+## Migrate, follow progress and reconcile
+
+1. Select **Start migration** for a full run; the **Connect → Scan → Preview → Migrate → Reconcile** badges describe the workflow, not a universal “Preview migration” button. **Run progress** displays run status, processed records, included/auto-added models and per-model steps. Closing the tab does not cancel a queued run.
+2. To stop processing, contact the queue administrator: there is no inbound **Stop** button. Stopping a worker affects other jobs; have the administrator assess the queue and allow the run to become failed/stalled, then fix the cause and choose **Resume** when offered. Resume continues saved steps/cursors rather than restarting the import.
+3. Select **Reconcile** after completion (reconciliation may run in a separate job). In **Reconciliation**, **Source (live)** counts current source rows, **Fetched** is fetched in the run and **Bites** is mapped rows. **Invoice total** and **Residual** compare source/Bites amounts. A ✓ means the available comparison matched; ⚠ means review mismatches, skipped lines and warnings. **Not imported yet → Include in next run** selects a model for the next run. **Stored for audit (no Bites record)** means vaulted source data rather than a mapped target.
+4. Inspect **Attachments and chatter → Skipped source records**, **Errors and conflicts** and **Mapping suggestions**. After **Scan**, **Suggest with AI (optional)** can propose field mappings when configured; inspect each source/target field and **Accept** or **Reject**. Suggestions are not proof that a source row mapped successfully.
+5. Later select **Delta sync** to fetch changes and retry unresolved mapping errors; **Reconcile** again. Delta does not detect source deletions; a complete full run marks missing *archived* rows as deleted but never deletes Bites targets. A webhook may queue targeted changes, but a manual delta remains useful for verification.
+
+## Webhook and two-way sync panels (Odoo API only)
+
+1. In **Webhook**, select **Rotate webhook secret**, copy the newly displayed URL immediately, and add Odoo automation rules as in [Prepare your Odoo](./odoo-setup.mdx). Treat the entire URL as a secret; rotating invalidates the prior URL.
+2. In **Two-way sync**, first **Test connection** to see **Odoo permissions** per domain. With `writeback-bites-switch`, inspect **Dry-run preview** and **Dry-run field differences** for each of **Contacts**, **Products**, **Cinema bookings and seats**, **Sales orders (draft)** and **Invoices and vendor bills (draft)**. A preview must be recent (within ten minutes) before **Enable after preview**; permission checks must pass.
+3. Enable only approved domains, then **Resume write-back** if paused. **Send now** dispatches pending work for an enabled, unpaused domain. **Pause write-back** stops outbound delivery without stopping inbound imports. Sales stay drafts unless you separately confirm **Enable automatic confirmation (extra opt-in)**; invoices stay drafts unless you separately confirm **Enable automatic posting (extra opt-in)**. Posting may require a credit note to undo. Payments and POS are unavailable.
+4. Inspect **Outbound queue** (`pending`, `sent`, `failed`, `conflict`, `review`) and **Write audit** (actor, operation, diff/result/error). **Retry** applies to failed entries; for **review**, verify whether Odoo already created the record before any retry. In **Errors and conflicts**, **Keep Bites** and **Keep Odoo** choose a resolution for a detected inbound conflict; decide after comparing both sides, not merely to clear a warning. See [Two-way sync](./two-way-sync.mdx) for limits and recovery.
+
+## CLI equivalents
+
+From the repository root, with the correct application environment and a connection ID belonging to the intended workspace:
+
+```bash
+php artisan bites-switch:scan ID
+php artisan bites-switch:migrate ID --full
+php artisan bites-switch:migrate ID --domains=res.partner,product.product
+php artisan bites-switch:migrate ID --resume
+php artisan bites-switch:reconcile ID
+php artisan bites-switch:import-csv ID path/to/exports
+php artisan bites-switch:import-dump ID path/to/backup.dump path/to/filestore.tar
+php artisan bites-switch:reap-stalled
+```
+
+`--domains=` accepts comma-separated source models; `--full` requests a full import (without it, a delta); `--resume` resumes the latest failed run with saved models. The filestore argument is optional. Import the dump/CSV before scanning that connection. CLI work still requires a properly configured application and queue/scheduler; never run fixture/test migrations against a development or production database. For failures see [Troubleshooting](./troubleshooting.mdx).

@@ -1,34 +1,36 @@
-> **Customize this file**: Tailor this template to your project by noting specific contribution types you're looking for, adding a Code of Conduct, or adjusting the writing guidelines to match your style.
+# Contribute to Bites documentation
 
-# Contribute to the documentation
+Documentation should help a customer complete a supported task without exposing
+private implementation or operational details.
 
-Thank you for your interest in contributing to our documentation! This guide will help you get started.
+## Workflow
 
-## How to contribute
-
-### Option 1: Edit directly on GitHub
-
-1. Navigate to the page you want to edit
-2. Click the "Edit this file" button (the pencil icon)
-3. Make your changes and submit a pull request
-
-### Option 2: Local development
-
-1. Fork and clone this repository
-2. Install the Mintlify CLI: `npm i -g mint`
-3. Create a branch for your changes
-4. Make changes
-5. Navigate to the docs directory and run `mint dev`
-6. Preview your changes at `http://localhost:3000`
-7. Commit your changes and submit a pull request
-
-For more details on local development, see our [development guide](development.mdx).
+1. Create a branch from `main`.
+2. Add or update MDX pages and navigation in `docs.json`.
+3. Run `npm ci` when dependencies changed, then `npm run check`.
+4. Preview with `npm run dev` when layout or components changed.
+5. Submit a pull request with the product owner and engineering reviewer.
 
 ## Writing guidelines
 
-- **Use active voice**: "Run the command" not "The command should be run"
-- **Address the reader directly**: Use "you" instead of "the user"
-- **Keep sentences concise**: Aim for one idea per sentence
-- **Lead with the goal**: Start instructions with what the user wants to accomplish
-- **Use consistent terminology**: Don't alternate between synonyms for the same concept
-- **Include examples**: Show, don't just tell
+- Use active voice and address the reader as “you”.
+- Lead with the outcome, then give ordered actions.
+- Use **bold** for UI labels and code formatting for routes, values, and commands.
+- Use “workspace” for the data boundary, “member” for a workspace participant,
+  and “site” for a physical Vision location.
+- Document permissions, safety limits, and irreversible actions near the step.
+- Use realistic placeholders; never copy a real credential into an example.
+
+## Public content boundary
+
+Publish supported product behavior, customer setup, public APIs, and safe
+troubleshooting. Do not publish:
+
+- passwords, access tokens, camera URLs, customer records, or environment files;
+- internal security findings, incident notes, or infrastructure access details;
+- provider handoff notes, private contacts, commercial terms, or test accounts;
+- unlaunched roadmap items, implementation plans, release ledgers, or raw QA evidence;
+- internal source-file paths unless they are necessary for an approved developer guide.
+
+When adapting source documentation from the application repository, curate it
+for the public audience instead of mirroring the entire `docs/` tree.
