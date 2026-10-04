@@ -1,0 +1,39 @@
+---
+title: "Authentication"
+description: "Authenticate API calls and select the active workspace."
+---
+
+# Authentication
+
+Bites API requests use a Sanctum bearer token. Obtain a token through the
+approved login flow for your client, store it as a secret, and send it in the
+`Authorization` header.
+
+```bash
+curl --request GET "https://bites.com/api/v1/user/permissions" \
+  --header "Accept: application/json" \
+  --header "Authorization: Bearer $BITES_TOKEN" \
+  --header "active-workspace: $BITES_WORKSPACE_ID"
+```
+
+The permissions endpoint returns the permission names available to the current
+user in the active workspace:
+
+```json
+{
+  "success": true,
+  "data": {
+    "permissions": ["view-dashboard", "manage-roles"],
+    "workspace_id": 42
+  }
+}
+```
+
+## Security guidance
+
+- Keep tokens in a secret manager or the client's protected secret storage.
+- Never place a token in a URL, screenshot, repository, or browser-side log.
+- Use the least-privileged account and workspace role for an integration.
+- Revoke and rotate a token after suspected exposure.
+- Treat `401` as an authentication problem and `403` as a permission or
+  workspace-boundary problem.

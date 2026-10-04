@@ -1,0 +1,83 @@
+---
+title: "MartService API"
+description: "Provider, serviceman, booking, customer request, and bid endpoints."
+---
+
+# MartService API
+
+MartService exposes the first-pass service marketplace API under `/api/v1/mart-service`. Routes are authenticated with Sanctum, require an active workspace through the `active-workspace` header or `workspace_id`, and remain behind `PlanModuleCheck:MartService`.
+
+## Data Ownership
+
+- Service catalog records reuse `product_service_items` with `type` equal to `service` or the existing app convention `Service`.
+- Customer billing reuses `sales_invoices` and `sales_invoice_items` with invoice `type = service`.
+- Provider profiles, servicemen, bookings, booking items, booking status events, service posts, and post bids are owned by MartService package tables prefixed with `mart_service_`.
+- Controllers delegate to Form Requests, DTOs, services, and repositories. Controllers do not query models directly.
+
+## Routes
+
+| Method | Route | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/mart-service/status` | Module status. |
+| `GET` | `/api/v1/mart-service/services` | List active service items from `product_service_items`. |
+| `GET` | `/api/v1/mart-service/services/{service}` | Show one service item. |
+| `GET` | `/api/v1/mart-service/providers` | List provider profiles in the active workspace. |
+| `POST` | `/api/v1/mart-service/providers` | Create a provider profile for an existing user. |
+| `POST` | `/api/v1/mart-service/providers/{provider}/servicemen` | Attach a serviceman user to a provider. |
+| `GET` | `/api/v1/mart-service/bookings` | List bookings in the active workspace. |
+| `POST` | `/api/v1/mart-service/bookings` | Create a booking and draft service sales invoice. |
+| `GET` | `/api/v1/mart-service/posts` | List customer service posts. |
+| `POST` | `/api/v1/mart-service/posts` | Create a customer service post. |
+| `POST` | `/api/v1/mart-service/posts/{post}/bids` | Create a provider bid for a post. |
+
+## Example Payloads
+
+Create provider:
+
+```json
+{
+  "provider_user_id": 10,
+  "display_name": "Cairo Home Care",
+  "phone": "+201000000000",
+  "email": "provider@example.test",
+  "address": "Downtown"
+}
+```
+
+Create booking:
+
+```json
+{
+  "customer_user_id": 12,
+  "provider_profile_id": 4,
+  "serviceman_user_id": 18,
+  "scheduled_at": "2026-05-20T09:00:00Z",
+  "payment_method": "offline",
+  "service_address": {
+    "line1": "12 Nile Street",
+    "city": "Cairo"
+  },
+  "items": [
+    {
+      "product_service_item_id": 99,
+      "quantity": 2
+    }
+  ]
+}
+```
+
+Create service post bid:
+
+```json
+{
+  "provider_profile_id": 4,
+  "provider_user_id": 10,
+  "serviceman_user_id": 18,
+  "amount": 240,
+  "message": "Can start tomorrow."
+}
+```
+
+## Permissions
+
+The package seeds MartService permissions such as `manage-mart-service`, `manage-mart-service-providers`, `manage-mart-service-servicemen`, `manage-mart-service-bookings`, `manage-mart-service-requests`, and `manage-mart-service-bids`. This API slice currently relies on module and authenticated workspace access; route-level permission middleware can be layered on top as provider/admin UI roles are introduced.

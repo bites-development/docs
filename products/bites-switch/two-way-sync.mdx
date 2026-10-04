@@ -1,0 +1,36 @@
+---
+title: Two-way sync with Odoo
+---
+
+## How changes travel
+
+Import is read-only by default. Only an **Odoo API** connection with `writeback-bites-switch`, an enabled domain and unpaused write-back sends Bites changes to Odoo; dump, CSV and QuickBooks do not write back. Inbound imports run with outbound model events suppressed to prevent a loop. Local creates, updates and deletes in supported Bites models enqueue workspace/connection-scoped `switch_outbox` entries after commit; a queue job sends eligible entries in ID order (up to 20 per job, at most five writes/second/connection). The scheduler dispatches pending/failed entries every minute. Delivery can be paused without stopping inbound runs.
+
+The outbox records its own idempotency key and status (`pending`, `sent`, `failed`, `conflict`, `review`). Created Odoo records acquire a connection-specific external ID (`ir.model.data`, module `bites_switch`) and `switch_external_ids` mapping, so subsequent sends can find them instead of creating duplicates. Mapped outbound write dates/checksums and the imported baseline detect Odoo edits (“echoes”/concurrent changes); conflicting edits are held, not overwritten automatically. Failures get delayed exponential retries (up to one hour); ambiguous creates, child creates, confirmation or posting outcomes are **review**, not blindly retried. Every attempted send records a `switch_write_audits` result. A webhook/delta may fetch the new Odoo version; the inbound mapper suppresses outbound echo events.
+
+## Supported domains and boundaries
+
+| Two-way sync domain | Odoo target and behavior | Held or unsupported cases |
+| --- | --- | --- |
+| **Contacts** | `res.partner`: create/update; local deletion archives (`active = false`) rather than unlinking. | Requires scoped mapping/rights; do not grant wider contact rights merely to clear an error. |
+| **Products** | `product.product` and associated template fields; mapped category when available. | Category must be readable; create/write and template write rights checked separately. |
+| **Cinema bookings and seats** | `event.registration` and `event.booked.seat`; mapped event/ticket and unoccupied seat required. Cancellation changes registration state; deletion archives registration. | Occupied/ambiguous seats, removed existing seats or missing unique ticket mapping are held. Standard Events alone lacks the cinema seat model; check your installed cinema addon on staging. |
+| **Sales orders (draft)** | `sale.order` plus lines, create/update draft quotations; **Enable automatic confirmation (extra opt-in)** invokes `action_confirm` only when the Bites order is confirmed. | Requires mapped customer/products, uniquely provable workspace, untaxed lines; an Odoo non-draft order, changed/removed line or uncertain confirm requires review. No deletion of orders. |
+| **Invoices and vendor bills (draft)** | `account.move` plus product lines, drafts by default; **Enable automatic posting (extra opt-in)** invokes `action_post` when the Bites invoice is posted. | Posted Odoo moves are never edited; changed/deleted lines, missing mapped parties/products or uncertain post require review. Posting is not safely undone without a credit note; no deletion of invoices. |
+| Payments and POS | **Unavailable** | Payment write-back needs a mapped journal and allocation/reconciliation workflow. POS orders need an active session, configuration and payment methods; writing a plain order would be incorrect. |
+
+No domain sends by virtue of a successful inbound import. Source-side record rules may narrow permissions even when an Odoo app group appears sufficient; see [Odoo permissions](./odoo-setup.mdx#permissions-for-two-way-sync-optional).
+
+## Roll out safely
+
+1. Make a staging copy of Odoo and use an isolated Bites workspace/connection. Complete the initial import, **Reconcile**, and investigate skips, missing mappings and amount differences first. Never exercise local rigs against production.
+2. Assign the Bites write-back permission only to operators who need it. Give the dedicated Odoo account only the create/write/read rights for the intended domain (including `ir.model.data` for new external IDs). Select **Test connection** to inspect **Odoo permissions**.
+3. For *each* domain, choose **Dry-run preview**, inspect individual field differences and Odoo rights, then **Enable after preview** within ten minutes. The preview is advisory, not an Odoo transaction. Keep unrelated domains disabled and **Pause write-back** until approved.
+4. **Resume write-back** and **Send now** for one domain, inspect **Outbound queue**, **Write audit**, the Odoo record and **Reconciliation**. Expand gradually. Confirming orders and posting invoices each require a separate confirmation setting; leave them off until the finance/sales owner authorizes the effect.
+
+## Recover without duplicate writes
+
+1. **Pause write-back** if an unexpected change appears. Read the outbox status and `last_error`, audit entry and corresponding Odoo record before changing settings.
+2. For `failed` (e.g. missing Odoo rights or transient network error), fix the underlying cause, select **Test connection**, then **Retry** on that row or allow the scheduled delayed retry. Confirm the domain remains enabled and write-back is resumed.
+3. For `conflict` (seat occupied, posted entry, changed line or both sides edited), compare Bites and Odoo, correct the underlying record/mapping or permissions and make an explicit decision; **Keep Bites**/**Keep Odoo** in **Errors and conflicts** resolve inbound conflicts, not an automatic replay of every outbox row. A posted invoice cannot be made writable by retrying.
+4. For `review`, especially an unknown create/confirm/post outcome, inspect Odoo for an already committed record or action **before** any manual recovery. Do not blindly create/send again. Check the external ID and write audit, then ask an administrator to reconcile state safely. Disable a domain or keep write-back paused while investigating; do not delete outbox rows to hide errors.

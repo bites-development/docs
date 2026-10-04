@@ -1,0 +1,125 @@
+---
+title: "MartRental API"
+description: "Vehicle catalog, rental cart, trip, assignment, and payment endpoints."
+---
+
+# MartRental API
+
+MartRental exposes a first-pass vehicle rental API under `/api/v1/mart-rental`.
+
+The package owns rental-specific vehicle, cart, trip, assignment, transaction, and partial payment tables. It reuses `product_service_items` for the sellable rental service attached to each vehicle and `sales_invoices` for customer-facing trip invoices.
+
+## Authentication
+
+All endpoints use the existing API middleware stack:
+
+- `api`
+- `api.json`
+- `auth:sanctum`
+- `PlanModuleCheck:MartRental`
+
+Send the active workspace through `active-workspace` or `workspace_id`.
+
+## Vehicle Setup
+
+Read module status:
+
+```http
+GET /api/v1/mart-rental/status
+```
+
+Create a vehicle brand:
+
+```http
+POST /api/v1/mart-rental/vehicle-brands
+```
+
+Create a vehicle category:
+
+```http
+POST /api/v1/mart-rental/vehicle-categories
+```
+
+Create a vehicle:
+
+```http
+POST /api/v1/mart-rental/vehicles
+```
+
+If `product_service_item_id` is omitted, the service creates a reusable `product_service_items` record with `type=service` and links it to the rental vehicle.
+
+List vehicles:
+
+```http
+GET /api/v1/mart-rental/vehicles?status=published&per_page=15
+```
+
+Show a vehicle:
+
+```http
+GET /api/v1/mart-rental/vehicles/{vehicle}
+```
+
+Create identity and driver records:
+
+```http
+POST /api/v1/mart-rental/vehicle-identities
+POST /api/v1/mart-rental/vehicle-drivers
+```
+
+## Cart And Trip Flow
+
+Create a rental cart:
+
+```http
+POST /api/v1/mart-rental/carts
+```
+
+For `rental_type=hourly`, pricing uses `hourly_price * estimated_hours * quantity`.
+For `rental_type=distance`, pricing uses `distance_price * distance * quantity`.
+
+Create a trip from a cart:
+
+```http
+POST /api/v1/mart-rental/trips
+```
+
+Trip creation writes:
+
+- `sales_invoices`
+- `sales_invoice_items` when the vehicle has a linked product/service item
+- `mart_rental_trips`
+- `mart_rental_trip_details`
+- `mart_rental_trip_vehicle_details`
+
+Update a trip status:
+
+```http
+PATCH /api/v1/mart-rental/trips/{trip}/status
+```
+
+Allowed statuses are `pending`, `confirmed`, `ongoing`, `completed`, and `canceled`.
+
+Record a trip payment:
+
+```http
+POST /api/v1/mart-rental/trips/{trip}/payments
+```
+
+Payments create `mart_rental_trip_transactions` and `mart_rental_partial_payments`, then update the trip payment status to `partial` or `paid`.
+
+## Provider Operations
+
+Create a provider profile:
+
+```http
+POST /api/v1/mart-rental/provider-profiles
+```
+
+Read provider summary metrics:
+
+```http
+GET /api/v1/mart-rental/provider/summary
+```
+
+The summary returns trip counts, total rental revenue, and collected paid amounts for the active workspace/provider.

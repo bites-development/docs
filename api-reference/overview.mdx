@@ -1,0 +1,41 @@
+---
+title: "API overview"
+description: "Conventions for Bites versioned and workspace-scoped APIs."
+---
+
+# Bites API
+
+Production API routes are served from `https://bites.com/api/v1/...`. New public
+endpoints are versioned under `/api/v1` and normally return JSON.
+
+## Request conventions
+
+Include these headers unless an endpoint documents otherwise:
+
+```http
+Accept: application/json
+Authorization: Bearer <token>
+active-workspace: <workspace-id>
+```
+
+The active workspace is required for workspace-scoped resources. The server
+also verifies that the authenticated user can access that workspace and has the
+permission required by the endpoint.
+
+## Status codes
+
+| Status | Meaning |
+| --- | --- |
+| `200` / `201` | The request succeeded. |
+| `401` | Authentication is missing or invalid. |
+| `403` | The account lacks workspace or action permission. |
+| `404` | The resource does not exist inside the permitted scope. |
+| `422` | Validation failed; inspect the returned field errors. |
+| `429` | The endpoint rate limit was exceeded. |
+
+## Next steps
+
+- Read [Authentication](/api-reference/authentication).
+- Manage shared people with the [Contacts API](/api-reference/contacts-api).
+- Build review flows with the [Approvals API](/api-reference/approvals-api).
+- Configure money display with [Currency settings](/api-reference/currency-settings).

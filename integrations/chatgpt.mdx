@@ -1,0 +1,38 @@
+---
+title: "Connect Bites to ChatGPT"
+description: "Use the Bites remote MCP endpoint from a supported AI client."
+---
+
+# Connect Bites to ChatGPT
+
+Bites exposes a remote Model Context Protocol endpoint at:
+
+```text
+https://mcp.bites.com/mcp
+```
+
+## Connect
+
+1. In your supported ChatGPT workspace, open the settings for apps or custom MCP
+   connections.
+2. Add a new remote MCP server using the endpoint above.
+3. Complete the Bites authorization flow in the browser.
+4. Return to ChatGPT and confirm that Bites tools are available.
+5. Start with a read-only request and verify the workspace shown in the result.
+
+<Warning>
+  Treat tool calls as operations on real business data. Review the selected
+  workspace and the requested change before approving a write action.
+</Warning>
+
+## Troubleshooting
+
+- If authorization loops, sign out of stale Bites sessions and reconnect.
+- If no records appear, verify the active workspace and your role permissions.
+- If a tool is unavailable, the corresponding Bites module may be disabled for
+  the workspace.
+- If the client cannot reach the endpoint, confirm that it supports remote HTTPS
+  MCP servers rather than local-only commands.
+
+Credentials and authorization tokens are managed by the connection flow. Do not
+place them in prompts or client configuration files.

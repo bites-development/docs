@@ -1,0 +1,73 @@
+---
+title: "Approval workflow API"
+description: "Create versioned, workspace-scoped approval requests and decisions."
+---
+
+# Approval Workflow API
+
+The approval workflow API stores workspace-scoped approval requests for
+supported Bites resources, including Taskly tasks.
+
+All endpoints require Sanctum authentication and a workspace the authenticated user can access. Approve and reject actions require the actor to manage the workspace.
+
+## Workspace Boundaries
+
+Every request and target must belong to the workspace in the route. Cross-
+workspace targets are not returned or accepted.
+
+## Endpoints
+
+`GET /api/v1/workspaces/{workspaceId}/approvals`
+
+Lists approval requests for the workspace. Optional filters: `status`, `approvable_type`, `approvable_id`, `module`, and `per_page`.
+
+`POST /api/v1/workspaces/{workspaceId}/approvals`
+
+Creates an approval request and version 1. By default the request is immediately submitted as `pending`; pass `"submit": false` to keep it as a draft.
+
+```json
+{
+  "approvable_type": "task",
+  "approvable_id": 1,
+  "module": "Taskly",
+  "policy_key": "project_task.review",
+  "payload": {
+    "title": "Review launch checklist",
+    "stage": "review"
+  },
+  "change_summary": "Initial task review request.",
+  "metadata": {
+    "source": "api"
+  }
+}
+```
+
+`GET /api/v1/workspaces/{workspaceId}/approvals/{approvalRequest}`
+
+Returns the request, current version, version history, and decisions.
+
+`POST /api/v1/workspaces/{workspaceId}/approvals/{approvalRequest}/versions`
+
+Adds a new version to an unresolved request. The old current version becomes `superseded`, and the new version becomes the current version.
+
+`POST /api/v1/workspaces/{workspaceId}/approvals/{approvalRequest}/submit`
+
+Submits a draft request.
+
+`POST /api/v1/workspaces/{workspaceId}/approvals/{approvalRequest}/approve`
+
+Approves a pending request and records a decision row.
+
+`POST /api/v1/workspaces/{workspaceId}/approvals/{approvalRequest}/reject`
+
+Rejects a pending request and records a decision row.
+
+`POST /api/v1/workspaces/{workspaceId}/approvals/{approvalRequest}/cancel`
+
+Cancels an unresolved request. Only the submitter, workspace owner, or superadmin can cancel.
+
+## Approvable aliases
+
+Supported aliases include `task`, `project_task`, `project`, `contact`, `user`,
+and approved onboarding setup task aliases. An enabled module can apply stricter
+view, edit, or manage permissions to its own approval targets.

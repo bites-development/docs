@@ -1,0 +1,52 @@
+---
+title: "Contacts API"
+description: "Create, find, update, and resolve workspace contacts."
+---
+
+# Contacts API
+
+Workspace contacts are shared identity records for mail and phone workflows. A contact can be resolved by primary email, secondary email, primary phone, or secondary phone.
+
+## Model
+
+Contacts are scoped to a workspace and store profile data on `contacts`:
+
+- `name`, `first_name`, `last_name`
+- `company`, `job_title`
+- `tags`, `notes`, `source`, `metadata`
+
+Email addresses are stored in `contact_emails`, and phone numbers are stored in `contact_phones`.
+Each channel row has a workspace-scoped normalized value and an `is_primary` flag.
+The API still exposes `email` and `phone` as the primary channel values and `emails` and `phones` as the full channel lists.
+
+At least one email address or phone number is required.
+
+## Endpoints
+
+All endpoints require Sanctum authentication and use the active workspace from the `active-workspace` header or `workspace_id` request value.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/v1/contacts` | List contacts, with `search`, `tag`, `source`, and `per_page` filters. |
+| `POST` | `/api/v1/contacts` | Create a contact. |
+| `GET` | `/api/v1/contacts/{contact}` | Fetch one contact. |
+| `PATCH` | `/api/v1/contacts/{contact}` | Update a contact. |
+| `DELETE` | `/api/v1/contacts/{contact}` | Delete a contact. |
+| `GET` | `/api/v1/contacts/resolve` | Resolve by `email` or `phone`. |
+
+## Example
+
+```json
+{
+  "name": "Mona Hassan",
+  "email": "mona.hassan@example.com",
+  "phone": "+15550102026",
+  "emails": ["mona.alt@example.com"],
+  "phones": ["+15550103030"],
+  "tags": ["mail", "phone"],
+  "source": "manual",
+  "metadata": {
+    "external_id": "contact-1"
+  }
+}
+```

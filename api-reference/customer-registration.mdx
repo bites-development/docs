@@ -1,0 +1,15 @@
+---
+title: "Customer registration API"
+description: "Register a customer account without creating a merchant workspace."
+---
+
+# Customer API registration
+
+`POST /api/v1/customer/register` creates a customer account; it never bootstraps company roles or a merchant workspace. Inputs: name, email, password, password_confirmation, optional recaptcha_token. The existing registration gate, password rules, email verification and registration rate limits still apply. Response is the existing auth envelope with `data.user.type: customer`, `data.user.workspace_id: null`, `data.token`, and `data.email_verification_required`.
+
+The existing `POST /api/register` additionally accepts `account_type: customer`. Omitted account_type defaults to company for backward compatibility. Only company/customer values are accepted there; the dedicated customer endpoint accepts customer only. Client-supplied admin/staff/superadmin types are rejected.
+
+Bites SSO returns customer for these accounts. TableTrack reads their identity without requiring a workspace; order creation resolves or creates the local profile inside the explicitly selected restaurant. Omit customer_id on a first order. Keep account identity separate from a restaurant's customer_id. Existing company accounts are not bulk-converted.
+
+Store the returned token as a secret. Do not replace a merchant or staff token
+with a customer token in the same client session.

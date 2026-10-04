@@ -1,0 +1,25 @@
+---
+title: "Mart suite"
+description: "Choose the Bites module for commerce, services, or rentals."
+---
+
+# Mart suite
+
+The Mart suite provides three workspace-scoped modules. They reuse Bites
+identity, product/service catalog, invoice, permissions, and module-plan
+controls instead of creating separate customer silos.
+
+<Columns cols={3}>
+  <Card title="Mart commerce" icon="store" href="/products/mart/commerce">
+    Storefront, cart, checkout, POS, delivery, finance, and reports.
+  </Card>
+  <Card title="MartService" icon="screwdriver-wrench" href="/products/mart/services">
+    Providers, servicemen, bookings, customer posts, and bids.
+  </Card>
+  <Card title="MartRental" icon="car" href="/products/mart/rentals">
+    Vehicles, rental carts, trips, assignments, and partial payments.
+  </Card>
+</Columns>
+
+All APIs use `/api/v1/...`, Sanctum authentication, and the active workspace.
+See [API fundamentals](/api-reference/overview) before integrating.

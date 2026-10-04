@@ -1,0 +1,37 @@
+---
+title: "Identity verification"
+description: "Understand the verification flow, status, permissions, and provider boundary."
+---
+
+# Identity Verification
+
+Identity verification lets an eligible Bites member complete a Stripe-hosted
+identity check and return to Bites to see its status.
+
+## Flow
+
+1. Open **Identity verification** in Bites.
+2. Start a verification and continue to the Stripe-hosted flow.
+3. Follow the provider instructions and submit the requested evidence.
+4. Return to Bites at `/identity-verification`.
+5. Wait for processing and, when required, workspace review.
+
+The return page is authenticated. Only the person being verified and authorized
+reviewers can access the relevant verification data.
+
+## Statuses
+
+- `draft`
+- `requires_input`
+- `processing`
+- `pending_review`
+- `approved`
+- `rejected`
+- `canceled`
+- `expired`
+
+## Privacy
+
+Bites stores provider references, encrypted verification summaries, status, and
+review evidence. It does not store raw identity-document images. Session secrets
+are returned only during the authenticated verification flow.

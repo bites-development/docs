@@ -1,0 +1,114 @@
+---
+title: "Mart commerce API"
+description: "Storefront, checkout, point-of-sale, delivery, finance, and reporting endpoints."
+---
+
+# Mart commerce API
+
+Mart is implemented as a Workdo package under `packages/workdo/Mart`. It reuses the current product, stock, invoice, and order projection tables instead of copying Admin source tables.
+
+## Data Ownership
+
+Canonical data stays in existing tables:
+
+- Products: `product_service_items`
+- Stock: `warehouse_stocks`
+- Invoices: `sales_invoices` and `sales_invoice_items`
+- Order board projection: `unified_orders`
+- Users, customers, delivery staff: `users`
+- Workspaces: `workspaces`
+
+Package-owned workflow tables are limited to Mart-specific state:
+
+- `mart_carts`, `mart_cart_items`
+- `mart_checkout_sessions`
+- `mart_order_status_events`
+- `mart_delivery_assignments`, `mart_delivery_histories`, `mart_delivery_locations`
+- `mart_parcel_delivery_instructions`
+- `mart_offline_payment_verifications`
+- `mart_storefront_settings`
+
+## API Routes
+
+All routes are under `/api/v1/mart` and use `auth:sanctum` plus `PlanModuleCheck:Mart`.
+
+Payment routes use the same authenticated `/api/v1/mart` base route.
+
+Core storefront:
+
+- `GET /status`
+- `GET /products`
+- `GET /products/{product}`
+- `GET /cart`
+- `POST /cart/items`
+- `PATCH /cart/items/{item}`
+- `DELETE /cart/items/{item}`
+- `POST /checkout`
+- `GET /orders`
+- `GET /orders/{order}`
+
+Operations:
+
+- `POST /pos/checkout`
+- `POST /delivery/assignments`
+- `PATCH /delivery/assignments/{assignment}/status`
+- `POST /delivery/assignments/{assignment}/locations`
+- `POST /parcel/instructions`
+- `GET /finance/summary`
+- `POST /finance/offline-payments`
+- `PATCH /finance/offline-payments/{verification}`
+- `GET /support/settings`
+- `POST /support/settings`
+- `GET /promotions/settings`
+- `POST /promotions/settings`
+- `GET /reports/dashboard`
+
+## Boundaries
+
+Controllers only orchestrate requests and responses. Validation is handled by Form Request classes. Business rules live in services. Table access is isolated in repositories.
+
+POS uses the same checkout service as storefront checkout with `channel = pos`. Delivery and parcel features write only Mart-owned workflow state and reference `sales_invoices`. Finance uses existing invoice amounts and updates invoice payment state only after offline payment verification. Support and promotions use `mart_storefront_settings` to avoid introducing duplicate support, coupon, or campaign source-of-truth tables before the existing platform modules are integrated.
+
+## Example Payloads
+
+POS checkout:
+
+```json
+{
+  "warehouse_id": 1,
+  "payment_method": "cash",
+  "items": [
+    {
+      "product_id": 1,
+      "quantity": 1
+    }
+  ]
+}
+```
+
+Delivery assignment:
+
+```json
+{
+  "sales_invoice_id": 1,
+  "delivery_user_id": 2,
+  "priority": "normal",
+  "delivery_address": {
+    "line1": "Customer street"
+  }
+}
+```
+
+Offline payment verification:
+
+```json
+{
+  "sales_invoice_id": 1,
+  "payment_method": "bank_transfer",
+  "amount": 100,
+  "currency_code": "USD",
+  "evidence": {
+    "reference": "BANK-001"
+  }
+}
+```

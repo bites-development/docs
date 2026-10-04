@@ -1,0 +1,124 @@
+---
+title: Prepare your Odoo
+---
+
+Use a dedicated Odoo user for BitesSwitch before choosing **Odoo API**. Odoo Online needs the **Custom** plan for external API access.
+
+## Choose a deployment and enable developer mode
+
+| Deployment | Before connecting | Find **Database** |
+| --- | --- | --- |
+| Odoo Online | External API requires the **Custom** plan. Ask your administrator to confirm the subscription. | Use the database name in your Odoo Online account/database settings; confirm with the administrator rather than guessing from the page address. |
+| Odoo.sh | Confirm the branch and its reachable Odoo instance. | Copy the database name from the branch's database details, not its project or branch label. |
+| Self-hosted | Expose an administrator-approved HTTPS endpoint with API access. | Ask the administrator for the configured database name; `/web/database/selector` lists databases only when database listing is enabled. Do not enable listing just to find it. |
+
+Developer mode exposes technical metadata and menus; it does **not** grant access rights. To turn it on, go to **Settings → Activate the developer mode**, or add `?debug=1` to the page address (`?debug=assets` additionally enables asset debugging). Use it to see **Groups** and **Technical**, configure automation rules, discover model and field names and record IDs, and read the numeric company ID. Turn it off after setup if not needed.
+
+## Add a dedicated user
+
+1. In Odoo, open **Settings → Users & Companies → Users → New**. Enter a distinct name and **Email Address**/**Login** (the login email goes into **Login (user email)** in BitesSwitch).
+2. Choose **Internal User**, not **Portal**: a portal user cannot read the backend models needed for an import. Set **Allowed Companies** to the companies to import and choose a **Default Company** among them. **Why:** record rules may restrict even otherwise readable records.
+3. Set only the app access rights below; save. Use Odoo's invitation flow to let the user set a password, or have an administrator set one according to your Odoo policy. Log in as the dedicated user before creating its API key. Avoid using an administrator account.
+
+## Set up a read-only integration user
+
+1. Use the dedicated internal integration user created above, not a personal administrator login. **Why:** its activity can be audited, access revoked separately, and rights limited to the import.
+2. Grant read access to the areas you will import: **Contacts**, **Sales**, **Point of Sale**, **Events** (cinema), **Inventory**, **Employees**, **CRM**, and **Accounting / Read-only**. Add other areas only if you intend to import them. **Why:** missing access can leave records out or block the import.
+3. Give this user access to every Odoo company you intend to import. In BitesSwitch, set **Odoo company ID (optional)** to the source company's numeric ID when you need to scope a connection to one company. **Why:** a company not allowed for the user cannot be read even if you select its ID.
+
+### Add Accounting / Read-only (Odoo 17/18/19)
+
+**Option 1 — from the user form:**
+
+1. Go to **Settings → Users & Companies → Users** and open the integration user.
+2. Open the **Access Rights** tab. On the **Accounting** (or **Invoicing**) line, choose **Read-only**.
+3. Select **Save**.
+
+**Option 2 — through the group:**
+
+1. Enable developer mode via **Settings → Activate the developer mode**, or append `?debug=1` to the Odoo page address.
+2. Go to **Settings → Users & Companies → Groups**. Search for **Read-only** under the **Accounting** application and open that group.
+3. On the **Users** tab, select **Add a line**, choose the integration user, then **Save**.
+
+Odoo permits payment reads only for members of **Accounting / Read-only** or **Accounting / Billing**. Prefer **Read-only**: **Billing** can create invoices. Do not downgrade an administrator whose Accounting role is higher just to add this access; use the dedicated user instead. Permission changes apply immediately.
+
+### Check read permissions by area
+
+| Import area | Odoo app / read access to check | Additional write access only if enabled |
+| --- | --- | --- |
+| Contacts, customers, vendors | **Contacts** / `res.partner` | **Contacts / User**, create/write `res.partner`, create `ir.model.data` |
+| Products, categories, current stock | **Inventory** or **Sales** / products, categories and stock | **Inventory / User** or **Sales / User**, create/write `product.product`, write `product.template`, create `ir.model.data` |
+| Cinema events, tickets, bookings | **Events** and installed cinema models / events, tickets, registrations, seats | **Events / User**, create/write `event.registration`, create/read `event.booked.seat` |
+| Sales, POS, purchasing | **Sales**, **Point of Sale**, **Purchase** / respective orders and lines | **Sales / User: Own Documents Only** or higher, create/write `sale.order` and `sale.order.line` for draft orders; POS write-back is unavailable |
+| Invoices, bills, journals, payments | **Accounting / Read-only** / accounting entries and payments | **Accounting / Billing**, create/write draft `account.move` and `account.move.line`; payment write-back is unavailable |
+| Staff, CRM, projects | **Employees**, **CRM**, **Project** / selected models | No outbound domain |
+
+Rights depend on installed apps and record rules: use **Test connection** and scan as the integration user, rather than granting broad access preemptively.
+
+### Find the company ID and scope
+
+1. Enable developer mode, open **Settings → Users & Companies → Companies**, then open the company you intend to import.
+2. Read the numeric record ID from the page URL and enter it in **Odoo company ID (optional)**. Leave it empty if you deliberately need all companies visible to this user.
+3. Verify the user's **Allowed Companies** and **Default Company**, test, scan and compare source counts. A company ID cannot override the user's access; use separate connections where distinct company scopes are required.
+
+## Connect securely
+
+1. Sign in as the dedicated user, open the user menu → **My Profile**/**Preferences** → **Account Security** → **New API Key**. Give the key an identifiable purpose, create it, and copy it once to a secure secret store. Odoo 19+ requires an API key; Odoo 17/18 can also accept a password, but a key can be revoked independently. Enter it in BitesSwitch's **API key or password** field. Never include it in tickets, screenshots or logs. To revoke it, return to **Preferences → Account Security**, delete/revoke that key, replace it in the connection through your administrator and select **Test connection**.
+2. Enter the **Odoo URL**, **Database**, and **Login (user email)**. For Odoo.sh, open the project branch's database details in Odoo.sh and copy the database name shown there; confirm it with your Odoo.sh administrator if it is not visible. Enter the database name, not the project or branch label.
+3. If Odoo.sh uses an IP allow-list, allow outbound access from your Bites deployment to Odoo before selecting **Test connection**. Coordinate the current egress IPs with your Bites administrator. **Why:** otherwise even correct credentials cannot connect.
+4. Rotate any passwords or API keys shared during testing, then update the connection's credentials with your administrator and test again. Do not send credentials in support messages.
+
+### Optional near-real-time updates
+
+1. On the BitesSwitch connection page, select **Rotate webhook secret** in **Webhook** and copy the displayed URL immediately; it is shown only after rotation.
+2. In Odoo with developer mode enabled, open **Settings → Technical → Automation → Automation Rules** (menu names can vary by installation). Select **New**, choose a supported **Model** (for example `res.partner`) and a trigger for record creation/update. For update triggers, select the fields whose changes should send an event; avoid irrelevant fields that create noisy updates.
+3. Add an action **Send Webhook Notification**, paste the exact connection URL, then save and activate the rule. Configure separate rules for other supported models/triggers as needed; the webhook queues a targeted fetch, not a direct mapping of the webhook body.
+4. Edit a harmless record in a staging copy and confirm a queued/delta run and reconciliation in BitesSwitch. Verify the Odoo server can reach the Bites HTTPS endpoint through the firewall; a reachable Bites-to-Odoo path alone is not enough.
+5. If the URL is exposed, select **Rotate webhook secret** again and replace it in *every* automation rule. The old URL stops authenticating.
+
+Treat the entire webhook URL as a secret: anyone with it could send events. Restrict who can view Odoo rules and logs; if it leaks, select **Rotate webhook secret** on the connection page and update the Odoo rules with the new URL.
+
+## Leave your source unchanged during import-only migrations
+
+Do not change Odoo records, install or remove modules, or upgrade Odoo solely for an import-only migration. Without an explicitly enabled two-way sync domain, BitesSwitch reads the source and never writes back; changing Odoo mid-import makes comparison harder. Use [Troubleshooting](./troubleshooting.mdx) if access or counts are wrong.
+
+## Permissions for two-way sync (optional)
+
+Keep the integration user read-only for import-only connections. Write-back is paused and every domain is disabled by default; the Bites operator additionally needs the `writeback-bites-switch` permission. Run **Test connection**, review the complete **Dry-run preview** and its field-level differences, then explicitly enable each domain and resume write-back. Use a separate Odoo integration user for outbound writes if you need to preserve a strictly read-only import identity. Never enable a customer production connection when exercising the local test rigs.
+
+Grant only the Odoo rights needed by the domains you enable:
+
+| Domain | Odoo models and permissions | Notes |
+| --- | --- | --- |
+| Contacts and customers/vendors | **Contacts / User** (create and write on `res.partner`) | Grant read on `res.partner` and create on `ir.model.data` for BitesSwitch's retry-safe external references. Deletion in Bites archives the partner (`active = false`); Odoo `unlink` is not used. |
+| Products and prices | **Inventory / User** or **Sales / User** with create/write on `product.product` and write on `product.template` | Confirm access to product categories when mapping `categ_id`; the user must be able to read `product.category`. Product creation also needs create on `ir.model.data`. Never grant price or cost visibility to users who should not view it. |
+| Cinema bookings and seats | **Events / User** with create/write on `event.registration` and create/read on the Softhealer `event.booked.seat` model | Read access to `event.event`, `event.event.ticket` and existing booked seats is mandatory to verify the event and prevent seat clashes. A seat already booked in Odoo holds the booking for review and nothing is written. A Bites cancellation sets the registration to cancelled; a Bites deletion archives it. Neither deletes the registration or its seats. The Softhealer models must be installed; standard Odoo Events alone does not provide `event.booked.seat`. Odoo may send its own confirmation mail (with a badge PDF) when a registration is created, depending on the event's mail settings. |
+| Sales orders (POS disabled) | **Sales / User: Own Documents Only** or higher, with create/write on `sale.order` and `sale.order.line` and read on mapped partners and products | Bites sales orders create or update **draft** quotations with their lines. Customers and products must already be mapped, and lines with taxes are held for review. The order is confirmed in Odoo (`action_confirm`) only after you also select **Enable automatic confirmation (extra opt-in)**. An Odoo order that is no longer a draft, or a line edited in Odoo since the last send, is held for review. Point-of-sale orders are not written: they need a POS session, configuration and payment-method workflow. |
+| Invoices and vendor bills (payments disabled) | **Accounting / Billing** (create/write on draft `account.move` and `account.move.line`) | Customer invoices and vendor bills are created and updated as **drafts** with their product lines; untaxed lines only. They are posted (`action_post`) only after you also select **Enable automatic posting (extra opt-in)**, which is off by default. An Odoo move that is already posted is held for review and never modified. Payments and reconciliation are not written. |
+
+### Verification status
+
+| Domain | Status |
+| --- | --- |
+| Contacts, products | Verified live on local Odoo 19 and Odoo 17 test servers. |
+| Cinema bookings and seats | Verified live on a local Odoo 19 test server running standard Events and a field-compatible test add-on. The add-on has the same `event.booked.seat` and registration seat fields as the Softhealer module but is not the licensed module, so Softhealer-specific behaviour is not covered. Test on a staging copy of your own database before enabling bookings. |
+| Sales orders | Draft create/update with lines and the separate confirm setting verified live on local Odoo 19. POS is not available. |
+| Invoices and vendor bills | Draft customer invoices and vendor bills with lines, updates, the separate post setting, and holding an already-posted move were verified live on local Odoo 19. Payments are not available. |
+
+The Odoo **Test connection** result shows write rights for enabled domains; the preview checks rights before enabling. Odoo rights vary with installed addons and record rules, so confirm them using a dedicated local test connection before assigning privileges to the production user. A failed or ambiguous create is held for review rather than blindly retried.
+
+## Network and preflight checklists
+
+Use HTTPS with a trusted certificate for the Odoo API and Bites webhook; self-signed certificates are not a supported production shortcut. Have the Odoo firewall/IP allow-list admit the Bites deployment's outbound egress IPs, and allow Odoo to reach the webhook endpoint if used. The URL guard rejects private/internal destinations unless a narrowly configured test exception is in place; never disable this guard to fix connectivity.
+
+**Before the first import:**
+
+1. Confirm the plan/API access, database, dedicated internal user, company scope and least-privilege read rights.
+2. Protect the API key, verify TLS/network reachability, choose the Bites workspace, then select **Test connection** and **Scan**.
+3. Choose **Import history from** deliberately; if excluding old accounting entries, plan separate opening balances. Review models, dependencies and archive-only data before **Start migration**.
+
+**Before two-way sync:**
+
+1. Run the full import and **Reconcile**; resolve missing mappings and warnings.
+2. Test on a **staging copy** of Odoo first, including local modifications, record rules, seat contention, draft orders and draft invoices.
+3. Grant only the additional write rights for each intended domain, inspect **Dry-run preview**, verify the queue worker, enable domains one by one and monitor **Outbound queue**/**Write audit**. Leave automatic confirmation and posting off unless separately approved. See [Two-way sync](./two-way-sync.mdx).
