@@ -1,0 +1,473 @@
+---
+title: Vision camera setup and operator runbook
+description: Create a site, connect Mac or Orin StoreBrain appliances, activate rules, trigger detections, review evidence, and troubleshoot the complete Vision flow.
+---
+
+# Vision camera setup and operator runbook
+
+This is the end-to-end guide for connecting a physical location and its RTSP
+cameras to Bites Vision, proving the event path, activating rules, and handling
+the resulting review work.
+
+## URLs
+
+- Production Vision dashboard: [https://bites.com/vision/ops](https://bites.com/vision/ops)
+- Local development dashboard: [https://dash.test/vision/ops](https://dash.test/vision/ops)
+- Mac Frigate UI after installation: [https://localhost:8971](https://localhost:8971)
+- Mac Bridge health endpoint: `http://127.0.0.1:8081/health`
+- Orin Frigate UI: `https://<orin-lan-ip>:8971`
+- Orin Bridge health endpoint: `http://127.0.0.1:8080/health`
+
+The production dashboard is workspace-scoped. Select the intended workspace
+before creating a site. A site created in one workspace is deliberately
+invisible from every other workspace.
+
+## What is connected to what
+
+```text
+RTSP camera on the site LAN
+        |
+        v
+Frigate + go2rtc on Mac or Jetson Orin
+        |                         |
+        | object tracks           | selected frames
+        v                         v
+      MQTT                 local Qwen3-VL
+        |                         |
+        +------------+------------+
+                     v
+             Vision Bridge outbox
+                     |
+                     | outbound HTTPS with one site token
+                     v
+              Bites Vision ingest API
+                     |
+          +----------+----------+
+          |                     |
+     Live/health             Cases/review
+```
+
+Frigate/YOLO answers **what, where, and when**. The local VLM can add a
+provisional description of a visible action. Bites rules decide whether those
+observations remain in shadow, create an alert, or require human review. A VLM
+description is not proof of theft, identity, ownership, or intent.
+
+## Before starting
+
+You need:
+
+- workspace-owner access in Bites;
+- one Apple Silicon Mac or JetPack 6 / L4T R36 Jetson Orin;
+- the repository checked out on that appliance;
+- a fixed RTSP camera reachable from the appliance over the site LAN;
+- a dedicated camera account rather than an administrator account; and
+- the camera's RTSP port and stream path, preferably an H.264 substream.
+
+Do not expose camera port `554`, MQTT, Ollama, Frigate's internal port `5000`,
+the Docker socket, or camera credentials to the public internet.
+
+## Complete setup flow
+
+### 1. Select the correct workspace
+
+Open [Bites Vision](https://bites.com/vision/ops), use the workspace switcher,
+and confirm the workspace name before proceeding. Users see only sites and
+cameras belonging to their active workspace.
+
+### 2. Create the site and one-time token
+
+1. Select **Add BOOX**. This opens the **Add StoreBrain appliance** wizard.
+2. Enter the physical site's name.
+3. Enter its IANA timezone, for example `Africa/Cairo`.
+4. Choose the evidence-retention period. Fourteen days is the normal starting
+   value.
+5. Leave **Bridge HTTPS endpoint** empty for the first outbound-ingest test.
+6. Select **Create site and token**.
+7. Copy the complete **Vision Bridge environment** block immediately.
+
+The token is shown once. Bites stores only its SHA-256 hash. If it is lost,
+open the site's settings, rotate the ingest token, and update the appliance
+before restarting Bridge.
+
+The generated block resembles:
+
+```dotenv
+VISION_ORGANIZATION_ID=workspace-123
+VISION_WORKSPACE_ID=123
+VISION_SITE_ID=site_example_ab12cd34
+VISION_SITE_NAME="Downtown restaurant"
+VISION_APPLIANCE_ID=sb_example1234
+VISION_DASHBOARD_URL=https://bites.com
+VISION_SITE_TOKEN=<one-time-site-token>
+VISION_VLM_MODEL=qwen3-vl:4b
+VISION_VLM_VERSION=qwen3-vl:4b
+VISION_RULE_SYNC_INTERVAL_SECONDS=60
+TAILSCALE_HOSTNAME=bites-vision-sb-example1234
+TAILSCALE_HTTPS_PORT=443
+TAILSCALE_ADVERTISE_TAGS=tag:vision-appliance
+```
+
+Never commit this block or paste it into a ticket, chat, or public log.
+
+### 3A. Install on an Apple Silicon Mac
+
+Run the interactive installer from the repository:
+
+```bash
+cd deploy/vision-mac && chmod +x ./*.sh && ./install.sh
+```
+
+The installer checks or installs Homebrew dependencies, Docker/Colima, Python
+3.11, Ollama, the pinned Frigate Apple detector, and the YOLOv9-t ONNX model. It
+prompts for the dashboard block and raw RTSP details, URL-encodes credentials,
+writes an ignored mode-`600` `.env`, starts the services, and verifies frames.
+
+For an existing completed environment file:
+
+```bash
+cd deploy/vision-mac
+./install.sh --env-file /secure/path/vision.env --non-interactive
+```
+
+If `deploy/vision-mac/.env` already contains all production values, use:
+
+```bash
+cd deploy/vision-mac
+./install.sh --non-interactive
+```
+
+Production must use `VISION_DASHBOARD_URL=https://bites.com`. Remove
+`COMPOSE_PROFILES=local-dashboard`; that profile and
+`VISION_DASHBOARD_URL=http://dashboard-proxy` are only for local `dash.test`.
+
+Use `--skip-vlm` when testing only object detection and event delivery. Rules
+that require visible-action descriptions will remain unavailable until the VLM
+is enabled.
+
+### 3B. Install on NVIDIA Jetson Orin
+
+On JetPack 6 / L4T R36:
+
+```bash
+cd deploy/vision-orin && chmod +x install.sh && ./install.sh
+```
+
+This installs or validates Docker, Compose, NVIDIA Container Toolkit, Frigate's
+TensorRT runtime, MQTT, local Ollama/Qwen3-VL, Vision Bridge, and private
+Tailscale Serve. It rejects unsupported hosts, placeholder secrets, unreachable
+cameras, unavailable NVIDIA runtime support, and unhealthy services.
+
+For a prepared environment file:
+
+```bash
+./install.sh --env-file /secure/path/vision.env --non-interactive
+```
+
+The first start builds the TensorRT engine and downloads the VLM, so it can take
+several minutes. Watch it with:
+
+```bash
+docker compose logs -f ollama-model frigate vision-bridge
+```
+
+### 4. Verify the appliance before creating a rule
+
+Mac:
+
+```bash
+cd deploy/vision-mac
+./verify.sh --running
+docker compose ps
+```
+
+Orin:
+
+```bash
+cd deploy/vision-orin
+./verify.sh
+docker compose ps
+docker compose logs --tail=100 vision-bridge
+```
+
+Confirm all of the following:
+
+- Frigate reports camera frames and recording processing;
+- `camera_fps` and `detection_fps` are greater than zero;
+- Vision Bridge is healthy and its durable outbox is not growing indefinitely;
+- the appliance reports the expected workspace/site identity;
+- Ollama has the configured VLM when action-description rules are required; and
+- the RTSP credential appears only in the local ignored `.env`.
+
+Open the Frigate UI, set a strong administrator password, confirm the live
+stream, and draw a real zone around the operational area. The bootstrap
+full-frame `restaurant_focus` zone is suitable for connectivity testing, not
+for production measurements.
+
+### 5. Create a rule before expecting detections
+
+Vision intentionally starts Frigate with an empty tracked-object list. The
+required detector labels come from this site's rules:
+
+- **Active** rules add alert labels.
+- **Shadow** rules add detection labels and collect evidence for evaluation.
+- **Disabled** rules add no labels.
+- A label is removed after the last active or shadow rule requiring it is
+  disabled.
+
+In **Vision → Rules**:
+
+1. Select the connected site.
+2. Write a supported rule, for example `When a person enters the packing zone,
+   create a review case`.
+3. Review the compiled objects, zones, sequence, and capabilities.
+4. Save it in **Shadow** first.
+5. Wait up to `VISION_RULE_SYNC_INTERVAL_SECONDS`—60 seconds by default.
+
+Bridge validates the generated Frigate configuration before saving it and
+restarts Frigate only when the manifest revision changes. The appliance keeps
+the last validated manifest during a temporary Bites outage.
+
+### 6. Trigger an object-detection rule
+
+Use a safe, controlled test:
+
+1. Confirm the rule is Shadow or Active.
+2. Confirm its required class appears in Frigate's tracked-object list.
+3. Stand outside the configured zone until no stale track remains.
+4. Enter the zone carrying the expected object, or place the object clearly in
+   view.
+5. Remain visible for several detection frames.
+6. Leave the zone and allow the track to end.
+7. Wait for Bridge to deliver its outbox.
+8. Select **Refresh data** in Bites Vision.
+
+Expected path:
+
+```text
+camera frame
+  -> YOLO object track
+  -> Frigate MQTT event
+  -> Vision Bridge normalized event
+  -> tenant/site authenticated ingest
+  -> shadow match or active case
+  -> retained snapshot/clip reference
+  -> operator review
+```
+
+A camera registers in Bites automatically on its first valid tenant-scoped
+event. There is no separate cloud form for RTSP credentials.
+
+### 7. Trigger a sequential rule
+
+For a sequence such as “person enters, then a box is added”:
+
+1. Author the parent rule with its ordered steps and expected time window.
+2. Keep it in Shadow.
+3. Wait for all required labels to appear in the appliance manifest.
+4. Start with an empty, stable zone.
+5. Have one person enter the zone.
+6. Add the visible box within the configured sequence window.
+7. End both tracks by leaving the zone or holding the scene stable.
+8. Open **Rules** to inspect the shadow match and **Review** to inspect any
+   resulting case/evidence.
+
+Object detection alone does not establish that a box contains food. That claim
+requires a visible observation supported by the VLM or a trained task-specific
+model and still begins as `needs_confirmation`.
+
+### 8. Trigger a visible-action/VLM rule
+
+Rules such as `someone is writing` require the appliance to report a configured
+VLM. They compile to `described_activity` and begin in Shadow.
+
+1. Confirm `VISION_VLM_MODEL` matches Frigate's `genai.model`.
+2. Confirm Ollama is running and the model is available.
+3. Create the action rule in Bites.
+4. Wait for the manifest revision to apply.
+5. Perform the action clearly in the configured zone.
+6. Confirm an `object.tracked` event is followed by `object.described`.
+7. Review the description and evidence manually.
+
+Descriptions are provisional observations and cannot automatically accuse a
+person, decide ownership, or become a quality score.
+
+## How to use each Vision tab
+
+### Live
+
+Shows the newest retained snapshot and health for cameras that have reported to
+the selected site. Continuous live video remains local to Frigate. Use this tab
+to verify whether the correct camera and zone are reporting.
+
+### Review
+
+Contains cases produced by active rules or explicit review routing. Open a case,
+inspect its rationale and evidence, then resolve it, mark it as not an issue, or
+leave a resolution note. Never make a disciplinary decision from a model label
+without reviewing the underlying evidence and business context.
+
+### Rules
+
+Create natural-language rules, inspect their compiled primitives, and control
+Disabled, Shadow, and Active state. Use Shadow to validate camera position,
+false positives, timing windows, and evidence quality before promotion.
+
+### Operations
+
+Shows station and operational metrics derived from accepted observations. A
+missing metric may mean the necessary rule, zone, or camera has not been
+configured—it does not prove that nothing happened.
+
+### Quality
+
+Shows inspections, human-preview work, corrective actions, and golden-set
+agreement. Read-only quality reporting works without a configured grader.
+Actual automated quality grading remains unavailable in production until a
+real structured grader passes the golden-set acceptance gate; production does
+not silently use `SimulatedGrader`.
+
+### Inventory
+
+Shows movement profiles and inventory proposals. Proposals require human
+approval; Vision observations do not directly mutate inventory balances.
+
+## Evidence and private remote access
+
+Outbound events work without an inbound tunnel. To let authenticated Bites
+users retrieve retained snapshots or clips, expose only Vision Bridge through
+an identity-gated private network.
+
+For Orin, the installer normally configures this. To run it again:
+
+```bash
+cd deploy/vision-orin
+./configure-private-access.sh
+```
+
+Copy the private HTTPS URL printed by `tailscale serve status`, open the site's
+settings in Bites, and save it as **Bridge endpoint**. Test `/health` from the
+Bites server or another specifically authorized `tag:vision-dashboard` node.
+
+Use the policy template at
+`deploy/vision-orin/tailscale/policy.hujson.example`. Remove or narrow any
+default allow-all grant; Tailscale grants are additive. Never use Tailscale
+Funnel because Funnel makes the endpoint public.
+
+The tunnel must never expose:
+
+- RTSP or port `554`;
+- Frigate's internal unauthenticated port `5000`;
+- MQTT or port `1883`;
+- Ollama or port `11434`;
+- the Docker socket; or
+- camera credentials.
+
+## Multiple cameras and multiple sites
+
+One appliance can serve multiple cameras at one physical site. Duplicate
+`go2rtc.streams.restaurant_camera` and `cameras.restaurant_camera` in the
+relevant Frigate config, give every camera a stable unique name, validate the
+configuration, and restart.
+
+Use a low-resolution H.264 substream for detection and the main stream for
+recording when available. Draw zones independently for every fixed view.
+
+Create a separate Bites site/token for:
+
+- a different physical location;
+- another customer workspace; or
+- an independently managed Frigate appliance that needs separate lifecycle and
+  health reporting.
+
+Never reuse a site token across workspaces. The API derives the tenant and site
+from the token; it does not trust workspace identifiers supplied by the camera.
+
+## Routine operations
+
+Mac:
+
+```bash
+cd deploy/vision-mac
+./up.sh
+./verify.sh --running
+./cycle.sh
+./down.sh
+```
+
+Orin:
+
+```bash
+cd deploy/vision-orin
+docker compose up -d
+docker compose ps
+docker compose logs --tail=100 vision-bridge frigate
+docker compose restart vision-bridge frigate
+docker compose down
+```
+
+The Bridge outbox is durable across restarts. Do not remove named volumes as a
+normal restart procedure.
+
+## Safe isolated test before using a real camera
+
+On Apple Silicon, the repository includes a full fake-camera lifecycle. It
+generates RTSP, runs ONNX inference through CoreML, applies a rule manifest,
+delivers a tenant-scoped event to a mock dashboard, optionally runs Qwen3-VL,
+restarts the services, and removes its test volumes:
+
+```bash
+cd deploy/vision-mac
+./install.sh --prepare-only
+./test-cycle.sh
+```
+
+Use `./test-cycle.sh --skip-vlm` to test detection and delivery without the VLM,
+or `./test-cycle.sh --keep-running` to inspect the test Frigate UI at
+`https://localhost:18971` after assertions.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Check or action |
+| --- | --- | --- |
+| Production says **No sites are connected yet** | No site exists in the selected workspace, or the appliance still targets local `dash.test` | Select the correct workspace, create **Add BOOX**, and ensure `VISION_DASHBOARD_URL=https://bites.com` |
+| Site exists but no camera appears | No valid camera event has reached Bites | Create a Shadow/Active rule, wait for manifest sync, trigger its required object, and inspect Bridge logs |
+| Frigate shows video but detects nothing | The site manifest has no required labels | Confirm the rule is not Disabled and inspect the applied `objects.track` list |
+| Rule was just enabled but detection has not changed | Manifest poll or validated restart is pending | Wait one sync interval and inspect `vision-bridge` logs for `applied rule manifest` |
+| Camera reports zero FPS | Wrong RTSP path, unreachable camera, unsupported codec, or insufficient resources | Test the substream locally, verify H.264, and inspect Frigate logs |
+| Events exist but evidence is broken | Bridge endpoint is empty/unreachable, private policy blocks Bites, or evidence expired | Check retention, `/health`, Tailscale Serve, and the site's Bridge endpoint |
+| VLM action rule is refused | The appliance did not report a VLM capability | Start Ollama/model, align model names, and wait for topology check-in |
+| Action description arrives but no active accusation is made | Correct safety behavior | Review the provisional description and promote only validated rules |
+| Quality page loads but grading is unavailable | No real production `QualityGrader` adapter is configured | Continue human preview/reporting; do not enable the simulator in production |
+| Duplicate or delayed events appear after restart | Bridge is replaying its durable outbox | Allow idempotent delivery to complete; do not delete volumes |
+| One workspace cannot see another workspace's camera | Correct tenant isolation | Switch to the workspace that owns the site |
+
+## Acceptance checklist
+
+A site is operational only when all items below are true:
+
+- [ ] The site was created in the intended workspace.
+- [ ] The one-time site token is stored only on the appliance.
+- [ ] The camera is reachable locally and reports non-zero FPS.
+- [ ] A real operational zone replaces any placeholder zone.
+- [ ] Bridge reports the correct organization, workspace, site, and appliance.
+- [ ] A Shadow rule applies its required detector labels.
+- [ ] A controlled trigger produces a tenant-scoped event.
+- [ ] The camera appears in **Live** with fresh health.
+- [ ] The rule produces the expected shadow match or review case.
+- [ ] Evidence loads through an authenticated private Bridge endpoint when
+      remote evidence is required.
+- [ ] Human review is completed before a rule is promoted to Active.
+- [ ] No RTSP, MQTT, Ollama, Docker, or unauthenticated Frigate port is public.
+
+## What Vision does not claim
+
+- YOLO object labels do not describe intent.
+- A VLM description is not proof of ownership or wrongdoing.
+- A container does not prove its contents.
+- Absence of a detection does not prove absence of an event.
+- A simulated grader is never a production quality measurement.
+- Inventory proposals do not directly change inventory without approval.
+
+These boundaries are intentional. They keep the system useful for observation
+and review without presenting uncertain model output as a business fact.
+

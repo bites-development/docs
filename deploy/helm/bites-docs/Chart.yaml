@@ -1,0 +1,6 @@
+apiVersion: v2
+name: bites-docs
+description: Self-hosted Bites Mintlify documentation preview
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
