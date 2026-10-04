@@ -5,3 +5,7 @@
 # Draft content
 drafts/
 *.draft.mdx
+
+# Deployment sources are not documentation content.
+deploy/
+deploy/**

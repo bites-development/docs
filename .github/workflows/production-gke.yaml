@@ -1,0 +1,125 @@
+name: production-docs-gke
+run-name: ${{ github.event.head_commit.message || github.workflow }}
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: docs-gke-central-binder
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  GCP_PROJECT_ID: central-binder-494822-a4
+  GCP_REGION: us-east1
+  GKE_CLUSTER_NAME: production-bites-gke
+  GCP_ARTIFACT_REGISTRY: us-east1-docker.pkg.dev/central-binder-494822-a4/bites-apps
+  GCP_WORKLOAD_IDENTITY_PROVIDER: projects/888465269487/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  GCP_GITHUB_ACTIONS_SA: github-actions@central-binder-494822-a4.iam.gserviceaccount.com
+
+jobs:
+  build-and-deploy:
+    name: Build, push, and deploy
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Check documentation links
+        run: npm run check
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - id: auth
+        name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.GCP_GITHUB_ACTIONS_SA }}
+          token_format: id_token
+          id_token_audience: ${{ env.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+          install_components: gke-gcloud-auth-plugin
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "${{ env.GCP_REGION }}-docker.pkg.dev" --quiet
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.GCP_ARTIFACT_REGISTRY }}/docs:${{ github.sha }}
+            ${{ env.GCP_ARTIFACT_REGISTRY }}/docs:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v5
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Configure GKE credentials
+        run: |
+          gcloud container clusters get-credentials "${{ env.GKE_CLUSTER_NAME }}" \
+            --region "${{ env.GCP_REGION }}" \
+            --project "${{ env.GCP_PROJECT_ID }}"
+
+      - name: Validate Helm chart
+        run: |
+          helm lint deploy/helm/bites-docs
+          helm template bites-docs deploy/helm/bites-docs \
+            --namespace production \
+            --set-string image.tag="${{ github.sha }}" > /tmp/bites-docs.yaml
+
+      - name: Deploy documentation
+        run: |
+          helm upgrade --install bites-docs deploy/helm/bites-docs \
+            --namespace production \
+            --create-namespace \
+            --set-string image.tag="${{ github.sha }}" \
+            --atomic \
+            --timeout 15m
+
+      - name: Verify rollout and route
+        run: |
+          kubectl rollout status deployment/bites-docs \
+            --namespace production \
+            --timeout 10m
+
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error \
+              --resolve docs.bites.com:443:34.160.47.214 \
+              https://docs.bites.com/vision/camera-setup \
+              --output /dev/null; then
+              exit 0
+            fi
+            echo "Waiting for docs.bites.com route (${attempt}/60)"
+            sleep 10
+          done
+
+          kubectl describe httproute bites-docs-httproute --namespace production
+          kubectl get pods --namespace production --selector app.kubernetes.io/instance=bites-docs
+          exit 1

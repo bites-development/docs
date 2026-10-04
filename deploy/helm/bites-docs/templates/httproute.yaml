@@ -1,0 +1,24 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "bites-docs.fullname" . }}-httproute
+  labels:
+    {{- include "bites-docs.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.gateway.name }}
+      sectionName: {{ .Values.gateway.sectionName }}
+  hostnames:
+    {{- range .Values.gateway.hostnames }}
+    - {{ . | quote }}
+    {{- end }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ include "bites-docs.fullname" . }}-service
+          port: {{ .Values.service.port }}
+{{- end }}
